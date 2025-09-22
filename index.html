@@ -5265,48 +5265,7 @@ function createCustomerOrderCard(order) {
 
 
 
-document.addEventListener("DOMContentLoaded", function () {
-  const welcomeModal = document.getElementById("welcomeModal");
 
-  function showWelcome() {
-    if (welcomeModal) {
-      welcomeModal.style.display = "flex";
-    }
-  }
-
-  function hideWelcome() {
-    if (welcomeModal) {
-      welcomeModal.style.display = "none";
-    }
-  }
-
-  // Start with one fake state in history
-  history.replaceState({page: "front"}, "", location.pathname);
-  history.pushState({page: "trap"}, "", location.pathname);
-
-  window.addEventListener("popstate", function (e) {
-    if (e.state && e.state.page === "trap") {
-      // User pressed Back
-      if (location.pathname !== "/" && location.pathname !== "/index.html") {
-        // Not on front → go to front
-        location.href = "/";
-      } else {
-        // Already on front → show welcome modal
-        showWelcome();
-      }
-
-      // Restore trap state so they can't escape
-      history.pushState({page: "trap"}, "", location.pathname);
-    }
-  });
-
-  // Optional: make modal closeable without breaking history
-  document.querySelectorAll("#welcomeModal .close").forEach(btn => {
-    btn.addEventListener("click", () => {
-      hideWelcome();
-    });
-  });
-});
 
   </script>
 </body>

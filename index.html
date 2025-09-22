@@ -5192,6 +5192,31 @@ function createCustomerOrderCard(order) {
     
     return card;
 }
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  const welcomeModal = document.getElementById("welcomeModal");
+
+  // Always push a state when page loads
+  history.replaceState({ page: "front" }, "Front Page", window.location.href);
+
+  window.addEventListener("popstate", function (event) {
+    if (event.state && event.state.page === "front") {
+      // If we're on front page and Back is pressed → show welcome modal
+      if (welcomeModal) {
+        welcomeModal.style.display = "flex";
+      }
+      // Push state again so user stays on site
+      history.pushState({ page: "front" }, "Front Page", window.location.href);
+    } else {
+      // If user goes back from another page → send them to front page
+      window.location.href = "/"; // adjust if your index file is in a subfolder
+    }
+  });
+});
+
   </script>
 </body>
 </html>

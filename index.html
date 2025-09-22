@@ -2214,34 +2214,85 @@ auth.onAuthStateChanged((user) => {
 });
 
 
-  // Close the welcome modal
-  function closeWelcomeModal() {
+ // Close the welcome modal
+function closeWelcomeModal() {
     const modal = document.getElementById("welcomeModal");
     if (modal) {
-      modal.style.display = "none";
-      document.body.style.overflow = "auto"; // re-enable scrolling
+        modal.style.display = "none";
+        document.body.style.overflow = "auto";
+        navigationState.hasSeenWelcomeModal = true;
     }
-  }
+}
 
-  // Automated Website → redirect
-  function selectAutomatedWebsite() {
+// Automated Website → redirect
+function selectAutomatedWebsite() {
     closeWelcomeModal();
-    window.location.href = "https://webvtec.github.io/WEB-VTEC-AUTOMATED/"; 
-    // change this to your automated website URL
-  }
+    window.location.href = "https://webvtec.github.io/WEB-VTEC-AUTOMATED/";
+}
 
-  // Online Products → just close modal (stay on this page)
-  function selectOnlineProducts() {
+// Online Products → close modal and go to products
+function selectOnlineProducts() {
     closeWelcomeModal();
-    // no redirect needed, products are already on front page
-  }
+    navigationState.currentPage = 'products';
+    navigationState.isOnFrontPage = true;
+    history.pushState({ page: 'products', frontPage: true }, '', window.location.href);
+}
 
-  // Ad Generation → redirect
-  function selectAdGeneration() {
+// Ad Generation → redirect
+function selectAdGeneration() {
     closeWelcomeModal();
-    window.location.href = "/ad-generation.html"; 
-    // change this to your ad generation URL
-  }
+    window.location.href = "/ad-generation.html";
+}
+
+// Handle back navigation
+function handleBackNavigation(state) {
+    if (!state) return;
+    
+    switch (state.page) {
+        case 'welcome':
+            if (navigationState.hasSeenWelcomeModal && navigationState.currentPage === 'products' && navigationState.isOnFrontPage) {
+                // Show welcome modal again when going back to front page
+                document.getElementById("welcomeModal").style.display = "block";
+                document.body.style.overflow = "hidden";
+                navigationState.currentPage = 'welcome';
+            }
+            break;
+            
+        case 'products':
+            // Always go to front page without modal when navigating back from other product pages
+            if (!state.frontPage) {
+                navigationState.isOnFrontPage = true;
+                navigationState.currentPage = 'products';
+                closeAllPages();
+                filterByCategory('all');
+            }
+            break;
+    }
+}
+
+// Close all modal pages
+function closeAllPages() {
+    closeProductDetail();
+    closeSellerDashboardPage();
+    closeCustomerOrders();
+}
+
+    // Navigation state tracking
+let navigationState = {
+    isOnFrontPage: false,
+    hasSeenWelcomeModal: false,
+    currentPage: 'welcome' // 'welcome', 'products', 'product-detail', 'seller-dashboard', 'orders'
+};
+
+
+
+    // Handle browser back button
+window.addEventListener('popstate', function(event) {
+    handleBackNavigation(event.state);
+});
+
+// Push initial state
+history.replaceState({ page: 'welcome' }, '', window.location.href);
 
 // ================================
 // AUTHENTICATION FUNCTIONS
@@ -2721,6 +2772,14 @@ function searchProducts() {
 function filterByCategory(category) {
     currentCategory = category;
     
+    // Track navigation state
+    if (category !== 'all') {
+        navigationState.isOnFrontPage = false;
+        history.pushState({ page: 'products', frontPage: false }, '', window.location.href);
+    } else {
+        navigationState.isOnFrontPage = true;
+    }
+    
     // Update active button
     document.querySelectorAll('.category-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -2761,6 +2820,10 @@ function displayFilteredProducts(category) {
 // PRODUCT DETAIL VIEW FUNCTIONS
 // ================================
 function showProductDetail(product) {
+    // Track navigation state
+    navigationState.currentPage = 'product-detail';
+    history.pushState({ page: 'product-detail' }, '', window.location.href);
+    
     let detailView = document.getElementById('productDetailView');
     if (!detailView) {
         detailView = document.createElement('div');
@@ -2902,6 +2965,12 @@ function closeProductDetail() {
     if (detailView) {
         detailView.classList.remove('active');
     }
+    
+    // Navigate back to front page
+    navigationState.currentPage = 'products';
+    navigationState.isOnFrontPage = true;
+    history.pushState({ page: 'products', frontPage: true }, '', window.location.href);
+    filterByCategory('all');
 }
 
 function updateDetailPageAuth() {

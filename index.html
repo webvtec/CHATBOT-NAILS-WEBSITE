@@ -5195,24 +5195,34 @@ function createCustomerOrderCard(order) {
 
 
 
-
 document.addEventListener("DOMContentLoaded", function () {
   const welcomeModal = document.getElementById("welcomeModal");
 
-  // Always push a state when page loads
-  history.replaceState({ page: "front" }, "Front Page", window.location.href);
+  // Helper: show welcome modal
+  function showWelcome() {
+    if (welcomeModal) {
+      welcomeModal.style.display = "flex";
+    }
+  }
+
+  // Push initial state
+  history.replaceState({ page: "front" }, "", window.location.pathname);
+
+  // Always push a blocker state so Back button won't exit
+  history.pushState({ page: "block" }, "", window.location.pathname);
 
   window.addEventListener("popstate", function (event) {
-    if (event.state && event.state.page === "front") {
-      // If we're on front page and Back is pressed → show welcome modal
-      if (welcomeModal) {
-        welcomeModal.style.display = "flex";
+    if (event.state && event.state.page === "block") {
+      // If back pressed inside site → return to front page
+      if (window.location.pathname !== "/" && window.location.pathname !== "/index.html") {
+        window.location.href = "/";
+      } else {
+        // Already on front → show welcome modal instead
+        showWelcome();
       }
-      // Push state again so user stays on site
-      history.pushState({ page: "front" }, "Front Page", window.location.href);
-    } else {
-      // If user goes back from another page → send them to front page
-      window.location.href = "/"; // adjust if your index file is in a subfolder
+
+      // Re-push the blocker so user can't escape with another back
+      history.pushState({ page: "block" }, "", window.location.pathname);
     }
   });
 });

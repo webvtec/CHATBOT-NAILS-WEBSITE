@@ -2159,6 +2159,67 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+// Check navigation state on page load/return
+function initializeNavigationState() {
+    // Check for stored navigation state
+    const storedState = sessionStorage.getItem('webvtec_nav_state');
+    if (storedState) {
+        try {
+            const parsedState = JSON.parse(storedState);
+            navigationState = { ...navigationState, ...parsedState };
+            sessionStorage.removeItem('webvtec_nav_state'); // Clean up
+        } catch (e) {
+            console.warn('Failed to parse stored navigation state');
+        }
+    }
+    
+    // Check if we're returning from external navigation
+    if (document.referrer && !document.referrer.includes(window.location.hostname)) {
+        // Coming from external site
+        navigationState.hasSeenWelcomeModal = true;
+        navigationState.isOnFrontPage = true;
+        navigationState.currentPage = 'products';
+        
+        // Ensure we're on the front page
+        resetToFrontPage();
+        
+        // Set up proper history state
+        history.replaceState({ page: 'products', frontPage: true }, '', window.location.pathname);
+    }
+}
+
+// Call this when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded');
+    console.log('Firebase available:', typeof firebase !== 'undefined');
+    console.log('Firebase Auth available:', typeof firebase !== 'undefined' && !!firebase.auth);
+    console.log('Auth instance:', auth);
+    
+    // Initialize navigation state
+    initializeNavigationState();
+    
+    loadProductsFromFirebase();
+    updateCartCount();
+    
+    // Add category change listener
+    setTimeout(() => {
+        const categorySelect = document.getElementById('dashboardProductCategory');
+        if (categorySelect) {
+            categorySelect.addEventListener('change', function() {
+                const sizeRow = document.getElementById('clothingSizeRow');
+                if (sizeRow) {
+                    if (this.value === 'clothing') {
+                        sizeRow.style.display = 'block';
+                    } else {
+                        sizeRow.style.display = 'none';
+                    }
+                }
+            });
+        }
+    }, 1000);
+});
+
 // Window click event handler for modals
 window.onclick = function(event) {
     const modal = document.getElementById('loginModal');
@@ -2227,6 +2288,15 @@ function closeWelcomeModal() {
 // Automated Website → redirect
 function selectAutomatedWebsite() {
     closeWelcomeModal();
+    
+    // Set navigation state before leaving
+    navigationState.hasSeenWelcomeModal = true;
+    navigationState.currentPage = 'products';
+    navigationState.isOnFrontPage = true;
+    
+    // Store in sessionStorage to persist across navigation
+    sessionStorage.setItem('webvtec_nav_state', JSON.stringify(navigationState));
+    
     window.location.href = "https://webvtec.github.io/WEB-VTEC-AUTOMATED/";
 }
 
@@ -2246,6 +2316,8 @@ function selectAdGeneration() {
 
 // Handle back navigation
 function handleBackNavigation(state) {
+    console.log('Back navigation triggered', state, navigationState);
+    
     if (!state) {
         // No state - handle default back behavior
         if (navigationState.currentPage === 'products' && navigationState.isOnFrontPage && navigationState.hasSeenWelcomeModal) {
@@ -2279,6 +2351,10 @@ function handleBackNavigation(state) {
                 // Going to a category page
                 navigationState.isOnFrontPage = false;
                 navigationState.currentPage = 'products';
+                // Apply the category filter if specified
+                if (state.category) {
+                    displayFilteredProducts(state.category);
+                }
             }
             break;
             
@@ -2288,6 +2364,17 @@ function handleBackNavigation(state) {
     }
 }
 
+
+// Handle when user returns to the page/tab
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        // Page became visible - check if we need to reinitialize
+        setTimeout(() => {
+            initializeNavigationState();
+        }, 100);
+    }
+});
+    
 // Close all modal pages
 function closeAllPages() {
     closeProductDetail();

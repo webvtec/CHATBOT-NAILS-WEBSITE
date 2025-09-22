@@ -2162,31 +2162,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Check navigation state on page load/return
 function initializeNavigationState() {
-    // Check for stored navigation state
-    const storedState = sessionStorage.getItem('webvtec_nav_state');
-    if (storedState) {
-        try {
-            const parsedState = JSON.parse(storedState);
-            navigationState = { ...navigationState, ...parsedState };
-            sessionStorage.removeItem('webvtec_nav_state'); // Clean up
-        } catch (e) {
-            console.warn('Failed to parse stored navigation state');
+    // Check if user has ever seen welcome modal (persistent across sessions)
+    const hasSeenModal = localStorage.getItem('webvtec_seen_welcome');
+    navigationState.hasSeenWelcomeModal = hasSeenModal === 'true';
+    
+    // Check if returning from external site
+    const isExternalReturn = document.referrer && 
+        !document.referrer.includes(window.location.hostname) && 
+        document.referrer !== '';
+    
+    if (isExternalReturn) {
+        console.log('Returning from external site:', document.referrer);
+        
+        if (!navigationState.hasSeenWelcomeModal) {
+            // First time visitor returning - show modal
+            showWelcomeModal();
+            navigationState.currentPage = 'welcome';
+        } else {
+            // Returning user - go directly to products
+            navigationState.currentPage = 'products';
+            navigationState.isOnFrontPage = true;
+            closeWelcomeModal();
+            resetToFrontPage();
         }
+    } else if (!navigationState.hasSeenWelcomeModal) {
+        // New visitor - show welcome modal
+        showWelcomeModal();
+        navigationState.currentPage = 'welcome';
+    } else {
+        // Normal page load for returning user
+        navigationState.currentPage = 'products';
+        navigationState.isOnFrontPage = true;
+        closeWelcomeModal();
     }
     
-    // Check if we're returning from external navigation
-    if (document.referrer && !document.referrer.includes(window.location.hostname)) {
-        // Coming from external site
-        navigationState.hasSeenWelcomeModal = true;
-        navigationState.isOnFrontPage = true;
-        navigationState.currentPage = 'products';
-        
-        // Ensure we're on the front page
-        resetToFrontPage();
-        
-        // Set up proper history state
-        history.replaceState({ page: 'products', frontPage: true }, '', window.location.pathname);
-    }
+    // Set initial history state
+    history.replaceState({ 
+        page: navigationState.currentPage, 
+        frontPage: navigationState.isOnFrontPage 
+    }, '', window.location.href);
 }
 
 // Call this when DOM is loaded
@@ -2289,25 +2303,32 @@ function closeWelcomeModal() {
 function selectAutomatedWebsite() {
     closeWelcomeModal();
     
-    // Set navigation state before leaving
+    // Mark that user has seen welcome modal
+    localStorage.setItem('webvtec_seen_welcome', 'true');
     navigationState.hasSeenWelcomeModal = true;
+    
+    // Set state for when they return
     navigationState.currentPage = 'products';
     navigationState.isOnFrontPage = true;
     
-    // Store in sessionStorage to persist across navigation
-    sessionStorage.setItem('webvtec_nav_state', JSON.stringify(navigationState));
-    
+    // Navigate to external site
     window.location.href = "https://webvtec.github.io/WEB-VTEC-AUTOMATED/";
 }
 
 // Online Products → close modal and go to products
 function selectOnlineProducts() {
     closeWelcomeModal();
+    
+    // Mark that user has seen welcome modal
+    localStorage.setItem('webvtec_seen_welcome', 'true');
+    navigationState.hasSeenWelcomeModal = true;
     navigationState.currentPage = 'products';
     navigationState.isOnFrontPage = true;
-    navigationState.hasSeenWelcomeModal = true;
+    
+    resetToFrontPage();
     history.pushState({ page: 'products', frontPage: true }, '', window.location.href);
 }
+    
 // Ad Generation → redirect
 function selectAdGeneration() {
     closeWelcomeModal();
@@ -2319,52 +2340,37 @@ function handleBackNavigation(state) {
     console.log('Back navigation triggered', state, navigationState);
     
     if (!state) {
-        // No state - handle default back behavior
-        if (navigationState.currentPage === 'products' && navigationState.isOnFrontPage && navigationState.hasSeenWelcomeModal) {
-            // From front page of products, go back to welcome modal
-            document.getElementById("welcomeModal").style.display = "block";
-            document.body.style.overflow = "hidden";
+        // Handle browser back when no state exists
+        if (navigationState.currentPage === 'products' && navigationState.isOnFrontPage) {
+            // From products front page, show welcome modal
+            showWelcomeModal();
             navigationState.currentPage = 'welcome';
             navigationState.isOnFrontPage = false;
         }
         return;
     }
     
+    // Handle state-based navigation
     switch (state.page) {
         case 'welcome':
-            if (navigationState.hasSeenWelcomeModal && navigationState.currentPage === 'products' && navigationState.isOnFrontPage) {
-                // Show welcome modal again when going back to front page
-                document.getElementById("welcomeModal").style.display = "block";
-                document.body.style.overflow = "hidden";
-                navigationState.currentPage = 'welcome';
-            }
+            showWelcomeModal();
+            navigationState.currentPage = 'welcome';
+            navigationState.isOnFrontPage = false;
             break;
             
         case 'products':
-            if (state.frontPage) {
-                // Going back to front page - don't show modal, just go to front page
-                navigationState.isOnFrontPage = true;
-                navigationState.currentPage = 'products';
-                closeAllPages();
-                resetToFrontPage();
+            closeWelcomeModal();
+            navigationState.currentPage = 'products';
+            navigationState.isOnFrontPage = state.frontPage || true;
+            if (state.category) {
+                filterByCategory(state.category);
             } else {
-                // Going to a category page
-                navigationState.isOnFrontPage = false;
-                navigationState.currentPage = 'products';
-                // Apply the category filter if specified
-                if (state.category) {
-                    displayFilteredProducts(state.category);
-                }
+                resetToFrontPage();
             }
-            break;
-            
-        case 'product-detail':
-            navigationState.currentPage = 'product-detail';
             break;
     }
 }
-
-
+    
 // Handle when user returns to the page/tab
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
@@ -2374,6 +2380,15 @@ document.addEventListener('visibilitychange', function() {
         }, 100);
     }
 });
+
+
+function showWelcomeModal() {
+    const modal = document.getElementById("welcomeModal");
+    if (modal) {
+        modal.style.display = "block";
+        document.body.style.overflow = "hidden";
+    }
+}
     
 // Close all modal pages
 function closeAllPages() {

@@ -5195,35 +5195,47 @@ function createCustomerOrderCard(order) {
 
 
 
+
 document.addEventListener("DOMContentLoaded", function () {
   const welcomeModal = document.getElementById("welcomeModal");
 
-  // Helper: show welcome modal
   function showWelcome() {
     if (welcomeModal) {
       welcomeModal.style.display = "flex";
     }
   }
 
-  // Push initial state
-  history.replaceState({ page: "front" }, "", window.location.pathname);
+  function hideWelcome() {
+    if (welcomeModal) {
+      welcomeModal.style.display = "none";
+    }
+  }
 
-  // Always push a blocker state so Back button won't exit
-  history.pushState({ page: "block" }, "", window.location.pathname);
+  // Start with one fake state in history
+  history.replaceState({page: "front"}, "", location.pathname);
+  history.pushState({page: "trap"}, "", location.pathname);
 
-  window.addEventListener("popstate", function (event) {
-    if (event.state && event.state.page === "block") {
-      // If back pressed inside site → return to front page
-      if (window.location.pathname !== "/" && window.location.pathname !== "/index.html") {
-        window.location.href = "/";
+  window.addEventListener("popstate", function (e) {
+    if (e.state && e.state.page === "trap") {
+      // User pressed Back
+      if (location.pathname !== "/" && location.pathname !== "/index.html") {
+        // Not on front → go to front
+        location.href = "/";
       } else {
-        // Already on front → show welcome modal instead
+        // Already on front → show welcome modal
         showWelcome();
       }
 
-      // Re-push the blocker so user can't escape with another back
-      history.pushState({ page: "block" }, "", window.location.pathname);
+      // Restore trap state so they can't escape
+      history.pushState({page: "trap"}, "", location.pathname);
     }
+  });
+
+  // Optional: make modal closeable without breaking history
+  document.querySelectorAll("#welcomeModal .close").forEach(btn => {
+    btn.addEventListener("click", () => {
+      hideWelcome();
+    });
   });
 });
 
